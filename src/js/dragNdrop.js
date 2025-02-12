@@ -17,14 +17,20 @@ export default class DragNDrop {
 
   init() {
     this.container = document.querySelector(".container");
-    this.container.addEventListener("pointerdown", this.onPointerDown.bind(this));
+    this.container.addEventListener(
+      "pointerdown",
+      this.onPointerDown.bind(this),
+    );
 
     document.addEventListener("selectstart", (event) => event.preventDefault());
     document.addEventListener("dragstart", (event) => event.preventDefault());
   }
 
   onPointerDown(event) {
-    if (!event.target.closest(".item") || event.target.classList.contains("cross")) {
+    if (
+      !event.target.closest(".item") ||
+      event.target.classList.contains("cross")
+    ) {
       return;
     }
 
@@ -73,7 +79,10 @@ export default class DragNDrop {
       const closestItem = elemBelow.closest(".item");
 
       if (this.placeholderParent !== ul) {
-        if (this.placeholderParent && this.placeholderParent.contains(this.placeholder)) {
+        if (
+          this.placeholderParent &&
+          this.placeholderParent.contains(this.placeholder)
+        ) {
           this.placeholderParent.removeChild(this.placeholder);
         }
         ul.appendChild(this.placeholder);
@@ -119,7 +128,9 @@ export default class DragNDrop {
     const state = {};
 
     columns.forEach((col, index) => {
-      const items = [...col.querySelectorAll(".item")].map((item) => item.textContent.trim());
+      const items = [...col.querySelectorAll(".item")].map((item) =>
+        item.textContent.trim(),
+      );
       state[`column-${index}`] = items;
     });
 
