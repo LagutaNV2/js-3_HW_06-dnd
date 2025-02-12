@@ -1,8 +1,8 @@
 «Работа с файлами, DnD»
 
-link:
+link: https://lagutanv2.github.io/js-3_HW_06-dnd/
 
-ID:
+ID: [![Build status](https://ci.appveyor.com/api/projects/status/ssqlr5fur96wmb51?svg=true)](https://ci.appveyor.com/project/LagutaNV2/js-3-hw-06-dnd)
 
 Легенда
 Вы делаете внутрикорпоративную систему управления задачами и вашему руководству очень нравится подход, который используется в Trello.
