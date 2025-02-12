@@ -207,6 +207,10 @@ class DragNDrop {
     this.shiftX = 0;
     this.shiftY = 0;
     this.placeholderParent = null;
+
+    // Привязка контекста (фиксируем `this`, чтобы не терялся в обработчиках)
+    this.onPointerMove = this.onPointerMove.bind(this);
+    this.onPointerUp = this.onPointerUp.bind(this);
   }
   init() {
     this.container = document.querySelector(".container");
@@ -218,32 +222,34 @@ class DragNDrop {
     if (!event.target.closest(".item") || event.target.classList.contains("cross")) {
       return;
     }
-    this.draggedElem = event.target.closest(".item"); // Перемещаемая карточка
+    this.draggedElem = event.target.closest(".item");
     this.shiftX = event.clientX - this.draggedElem.getBoundingClientRect().left;
     this.shiftY = event.clientY - this.draggedElem.getBoundingClientRect().top;
 
-    // Создание placeholder (заглушка)
-    this.placeholder = this.draggedElem.cloneNode(true);
+    // Создаём placeholder (промежуточный элемент)
+    this.placeholder = document.createElement("li");
     this.placeholder.classList.add("empty");
     this.placeholder.style.height = `${this.draggedElem.offsetHeight}px`;
-    this.placeholder.style.visibility = "hidden";
-    this.draggedElem.style.width = `${this.draggedElem.offsetWidth}px`;
-    this.draggedElem.style.height = `${this.draggedElem.offsetHeight}px`;
-    this.draggedElem.classList.add("dragging");
-    this.draggedElem.style.willChange = "transform"; // Для анимации
-    document.body.appendChild(this.draggedElem);
+
+    // Клонируем элемент
+    this.cloneElem = this.draggedElem.cloneNode(true);
+    this.cloneElem.classList.add("dragging-clone");
+    this.cloneElem.style.position = "absolute";
+    this.cloneElem.style.width = `${this.draggedElem.offsetWidth}px`;
+    this.cloneElem.style.height = `${this.draggedElem.offsetHeight}px`;
+    this.cloneElem.style.pointerEvents = "none"; // Чтобы клон не мешал
+
+    // Прячем оригинальный элемент
+    this.draggedElem.style.visibility = "hidden";
+    document.body.appendChild(this.cloneElem);
     this.moveAt(event.pageX, event.pageY);
-    document.addEventListener("pointermove", this.onPointerMove.bind(this)); // ~ mousemove
-    document.addEventListener("pointerup", this.onPointerUp.bind(this)); // ~ mouseup
+    document.addEventListener("pointermove", this.onPointerMove);
+    document.addEventListener("pointerup", this.onPointerUp);
   }
   moveAt(pageX, pageY) {
-    if (!this.draggedElem) {
-      console.error("Ошибка: draggedElem отсутствует!");
-      return;
-    }
-    this.draggedElem.style.position = "fixed";
-    this.draggedElem.style.left = `${pageX - this.shiftX}px`;
-    this.draggedElem.style.top = `${pageY - this.shiftY}px`;
+    if (!this.cloneElem) return;
+    this.cloneElem.style.left = `${pageX - this.shiftX}px`;
+    this.cloneElem.style.top = `${pageY - this.shiftY}px`;
   }
   onPointerMove(event) {
     this.moveAt(event.pageX, event.pageY);
@@ -254,7 +260,7 @@ class DragNDrop {
       const ul = closestColumn.querySelector("ul");
       const closestItem = elemBelow.closest(".item");
       if (this.placeholderParent !== ul) {
-        if (this.placeholderParent) {
+        if (this.placeholderParent && this.placeholderParent.contains(this.placeholder)) {
           this.placeholderParent.removeChild(this.placeholder);
         }
         ul.appendChild(this.placeholder);
@@ -268,38 +274,29 @@ class DragNDrop {
   onPointerUp() {
     if (!this.draggedElem || !this.placeholder) return;
 
-    // Убираем placeholder
+    // Заменяем placeholder на оригинальный элемент
     if (this.placeholderParent) {
-      this.placeholderParent.removeChild(this.placeholder);
+      this.placeholderParent.replaceChild(this.draggedElem, this.placeholder);
     }
 
-    // Вставляем draggedElem на место placeholder
-    const placeholderParent = this.placeholderParent;
-    if (placeholderParent) {
-      placeholderParent.replaceChild(this.draggedElem, this.placeholder);
+    // Удаляем клон и показываем оригинал
+    if (this.cloneElem) {
+      this.cloneElem.remove();
+      this.cloneElem = null;
     }
+    this.draggedElem.style.visibility = "visible";
 
-    // Восстанавливаем свойства карточки
-    this.draggedElem.style.transition = "opacity 0.1s ease-out";
-    this.draggedElem.style.opacity = "0.8"; // для анимации
+    // Сброс переменных
+    this.draggedElem = null;
+    this.placeholder = null;
+    this.placeholderParent = null;
 
-    setTimeout(() => {
-      if (!this.draggedElem) return;
-      this.draggedElem.classList.remove("dragging");
-      this.draggedElem.style.removeProperty("position");
-      this.draggedElem.style.removeProperty("left");
-      this.draggedElem.style.removeProperty("top");
-      this.draggedElem.style.removeProperty("opacity");
-      this.draggedElem.style.removeProperty("transition");
-      this.draggedElem = null;
-    }, 50);
-
-    // Сохраняем состояние после перемещения
+    // Сохранение состояния
     this.saveState();
 
-    // Убираем обработчики событий
-    document.removeEventListener("pointermove", this.onPointerMove.bind(this));
-    document.removeEventListener("pointerup", this.onPointerUp.bind(this));
+    // Удаляем обработчики
+    document.removeEventListener("pointermove", this.onPointerMove);
+    document.removeEventListener("pointerup", this.onPointerUp);
   }
   saveState() {
     const columns = document.querySelectorAll(".column");
@@ -309,11 +306,11 @@ class DragNDrop {
       state[`column-${index}`] = items;
     });
     console.log("Карточка перемещена");
-    if (!this.cards.container) {
-      console.error("Ошибка: this.cards.container не привязан");
+    if (!this.cards || !this.cards.saveToStorage) {
+      console.error("Ошибка: this.cards.saveToStorage не найден");
       return;
     }
-    this.cards.saveToStorage();
+    this.cards.saveToStorage(state);
   }
 }
 
